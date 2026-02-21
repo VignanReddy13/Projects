@@ -1,0 +1,289 @@
+//model code
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import pickle
+
+# Load dataset
+data = pd.read_csv("health_data.csv")
+
+# Features and target
+X = data.drop("Outcome", axis=1)
+y = data["Outcome"]
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Train model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Save model
+with open("health_model.pkl", "wb") as f:
+    pickle.dump(model, f)
+
+print(" Model trained and saved as health_model.pkl")
+
+//app code
+
+from flask import Flask, render_template, request
+import pickle
+import numpy as np
+
+app = Flask(__name__)
+
+# Load trained model
+with open("health_model.pkl", "rb") as f:
+    model = pickle.load(f)
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    # Get form data
+    features = [float(x) for x in request.form.values()]
+    final_features = np.array([features])
+    
+    # Predict risk
+    prediction = model.predict(final_features)[0]
+    
+    # Map prediction to risk level
+    risk_levels = {0: "Low Risk", 1: "High Risk"}
+    output = risk_levels[prediction]
+    
+    return render_template(
+        "index.html", prediction_text=f"Your Health Risk Level: {output}"
+    )
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+//index html code
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Health Risk Prediction System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <h1>🩺 Health Risk Prediction System</h1>
+        <p class="subtitle">Enter your medical parameters below</p>
+
+        <!-- Input Form -->
+        <form action="/predict" method="post" class="input-form">
+            <div class="form-group">
+                <label>Pregnancies</label>
+                <input type="number" name="Pregnancies" required>
+            </div>
+            <div class="form-group">
+                <label>Glucose</label>
+                <input type="number" name="Glucose" required>
+            </div>
+            <div class="form-group">
+                <label>Blood Pressure</label>
+                <input type="number" name="BloodPressure" required>
+            </div>
+            <div class="form-group">
+                <label>Skin Thickness</label>
+                <input type="number" name="SkinThickness" required>
+            </div>
+            <div class="form-group">
+                <label>Insulin</label>
+                <input type="number" name="Insulin" required>
+            </div>
+            <div class="form-group">
+                <label>BMI</label>
+                <input type="number" step="0.1" name="BMI" required>
+            </div>
+            <div class="form-group">
+                <label>Diabetes Pedigree Function</label>
+                <input type="number" step="0.01" name="DiabetesPedigreeFunction" required>
+            </div>
+            <div class="form-group">
+                <label>Age</label>
+                <input type="number" name="Age" required>
+            </div>
+
+            <button type="submit">Predict Risk</button>
+        </form>
+
+        <!-- Result Form -->
+        {% if prediction_text %}
+        <div class="result-card">
+            <h2>Prediction Result</h2>
+            <table>
+                <tr>
+                    <td><strong>Pregnancies:</strong></td>
+                    <td>{{ request.form.Pregnancies }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Glucose:</strong></td>
+                    <td>{{ request.form.Glucose }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Blood Pressure:</strong></td>
+                    <td>{{ request.form.BloodPressure }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Skin Thickness:</strong></td>
+                    <td>{{ request.form.SkinThickness }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Insulin:</strong></td>
+                    <td>{{ request.form.Insulin }}</td>
+                </tr>
+                <tr>
+                    <td><strong>BMI:</strong></td>
+                    <td>{{ request.form.BMI }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Diabetes Pedigree Function:</strong></td>
+                    <td>{{ request.form.DiabetesPedigreeFunction }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Age:</strong></td>
+                    <td>{{ request.form.Age }}</td>
+                </tr>
+                <tr class="final-row">
+                    <td><strong>Risk Level:</strong></td>
+                    <td class="{% if 'Low' in prediction_text %}low{% else %}high{% endif %}">
+                        {{ prediction_text }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+</body>
+</html>
+
+//style css code
+
+body {
+    background: linear-gradient(135deg, #1e3c72, #2a5298, #6fa3ef);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.container {
+    background: #ffffff;
+    padding: 40px;
+    width: 600px;
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+    text-align: center;
+    color: #2a5298;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #555;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+/* Form styling */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    color: #1565c0;
+    margin-bottom: 6px;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background-color: #fdfdfd;
+    transition: 0.3s;
+}
+
+input:focus {
+    border-color: #2a5298;
+    background-color: #eef5ff;
+    outline: none;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    background: #2a5298;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #1e3c72;
+}
+
+/* Result card */
+.result-card {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.result-card h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #2a5298;
+}
+
+.result-card table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.result-card td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.final-row td {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.low {
+    color: #2e7d32;
+    background-color: #c8e6c9;
+    padding: 6px;
+    border-radius: 4px;
+}
+
+.high {
+    color: #c62828;
+    background-color: #ffcdd2;
+    padding: 6px;
+    border-radius: 4px;
+}
